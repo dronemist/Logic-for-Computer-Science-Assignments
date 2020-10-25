@@ -384,7 +384,7 @@ paths(X, Y, L):-
     paths_helper(X, Y, AllL, 5, 1),
     % write(AllL),
     sort_paths(AllL, L1),
-    length(L1, Len),
+    % length(L1, Len),
     % write(Len),
     % nl,
     take(5, L1, L).
