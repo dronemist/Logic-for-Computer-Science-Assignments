@@ -1,6 +1,6 @@
 open Formula;;
 open Program;;
-open Graph;;
+(* open Graph;; *)
 
 module BDD = struct
     type sat_assignment = string list
@@ -137,8 +137,13 @@ module BDD = struct
     let rec to_dot bdd = let oc = open_out "bdd.dot" in 
                           Printf.fprintf oc "digraph bdd { \n"; 
                           let (root, h1, h2, order) = bdd in
+                          if root == 1 || root == 0 then (
+                            Printf.fprintf oc "%d \n" root
+                          ) 
+                          else (
                           let l1 = Hashtbl.fold (fun k v acc -> (k, v) :: acc) h1 [] in 
-                          to_dot_help l1 oc;
+                          to_dot_help l1 oc
+                          );
                           Printf.fprintf oc "} \n";
                           close_out oc;
     ;; 
