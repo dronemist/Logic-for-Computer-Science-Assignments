@@ -1,5 +1,7 @@
 open Formula;;
 open Program;;
+open Graph;;
+
 module BDD = struct
     type sat_assignment = string list
 		
@@ -117,8 +119,29 @@ module BDD = struct
       else any_sat (l, h1, h2, order)
     )
     ;;
-		
-		let to_dot bdd = raise Not_implemented;; 
+
+    let rec to_dot_help list oc = match list with 
+    [] -> ()
+    | (root, (var, l, h))::xs -> 
+                        Printf.fprintf oc "%d[label=%s] \n" root var;
+                        if l != -1 then ( 
+                          Printf.fprintf oc "%d -> %d" root l;  
+                          Printf.fprintf oc "[color=red] [style=dashed] [label=\"0\"]\n"
+                        );
+                        if h != -1 then (
+                          Printf.fprintf oc "%d -> %d" root h;
+                          Printf.fprintf oc "[color=green] [label=\"1\"]\n"
+                        );
+                        to_dot_help xs oc;
+    ;;
+    let rec to_dot bdd = let oc = open_out "bdd.dot" in 
+                          Printf.fprintf oc "digraph bdd { \n"; 
+                          let (root, h1, h2, order) = bdd in
+                          let l1 = Hashtbl.fold (fun k v acc -> (k, v) :: acc) h1 [] in 
+                          to_dot_help l1 oc;
+                          Printf.fprintf oc "} \n";
+                          close_out oc;
+    ;; 
 		
 end;;
 
