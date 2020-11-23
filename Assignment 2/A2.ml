@@ -71,19 +71,20 @@ let col board_size i j =
 
 (* Get diagonal elements in top-left to bottom-right direction *)
 let diag_r board_size i j = 
-  let rec get_diag_r board_size row col k = 
-    if board_size == k || k < 0 || board_size <= col + k - row || col + k - row < 0 then []                          
-    else if k == row then (get_diag_r board_size row col (k+1))
+  let rec get_diag_r board_size row col k = (
+    if board_size <= k then []                          
+    else if k == row || k < 0 || board_size <= (col + k - row) || (col + k - row) < 0 then (get_diag_r board_size row col (k+1))
     else ("c" ^ (string_of_int k) ^ (string_of_int (col + k - row)))::
     (get_diag_r board_size row col (k+1))
+  )
   in (get_diag_r board_size i j 0)  
 ;;
 
 (* Get diagonal elements in top-right to bottom-left direction *)
 let diag_l board_size i j = 
   let rec get_diag_l board_size row col k = 
-    if board_size == k || k < 0 || board_size <= col + row - k || col + row - k < 0 then []                          
-    else if k == row then (get_diag_l board_size row col (k+1))
+    if board_size <= k then []                          
+    else if k == row || k < 0 || board_size <= (col + row - k) || (col + row - k) < 0 then (get_diag_l board_size row col (k+1))
     else ("c" ^ (string_of_int k) ^ (string_of_int (col + row - k) ))::
     (get_diag_l board_size row col (k+1))
   in (get_diag_l board_size i j 0)  
