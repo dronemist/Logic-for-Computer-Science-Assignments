@@ -1,0 +1,19 @@
+#use "topfind";;
+#require "ocamlgraph";;
+#directory "_build";; (* Consider this folder when looking for files *)
+#load "bdd.cmo";;
+#load "formula.cmo";;
+#load "A2.cmo";;
+open A2;;
+open Bdd;;
+open BDD;;
+open Formula;;
+open Program;;
+
+let test1 = OprTernary(IFTHENELSE, OprBinary(IFF, Variable("a"), Variable("b")), 
+OprTernary(IFTHENELSE, Variable("c"), OprBinary(OR, Variable("a"), Variable("d")), 
+OprBinary(AND, Variable("b"), Variable("c"))), OprBinary(AND, Variable("a"), Variable("d")))
+
+let test2 = OprTernary(IFTHENELSE, OprBinary(IFF, Variable("a"), Variable("b")), 
+OprTernary(IFTHENELSE, Variable("c"), OprBinary(OR, Variable("a"), Variable("d")), 
+OprBinary(AND, Variable("b"), Variable("c"))), OprBinary(AND, Variable("a"), Variable("d")))

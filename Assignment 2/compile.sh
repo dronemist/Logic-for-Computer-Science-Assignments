@@ -1,0 +1,1 @@
+ocamlbuild formula.cmo bdd.cmo A2.cmo
