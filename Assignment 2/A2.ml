@@ -165,7 +165,7 @@ let n_queen board_size =
   let l_fin = (take_and (l1@l2@l3@l4@l5)) in
   let order = (get_order board_size) in 
   let bdd = (bddFromExpr l_fin order) in 
-  (bdd)
+  (all_sat bdd)
 ;;
 
 (*	The type of  knight is int -> int -> int -> string list, where
