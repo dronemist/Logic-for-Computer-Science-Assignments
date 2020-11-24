@@ -14,4 +14,5 @@ let test1 = OprTernary(IFTHENELSE, OprBinary(IFF, Variable("a"), Variable("b")),
 OprTernary(IFTHENELSE, Variable("c"), OprBinary(OR, Variable("a"), Variable("d")), 
 OprBinary(AND, Variable("b"), Variable("c"))), OprBinary(AND, Variable("a"), Variable("d")))
 
-let test2 = OprBinary(OR, Variable("a"), OprUnary(NOT, Variable("a")))
+let test2 = OprBinary(AND, OprBinary(IFF, Variable("a"), Variable("b")), 
+OprBinary(IFF, Variable("c"), Variable("d")))
