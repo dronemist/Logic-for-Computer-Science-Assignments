@@ -14,33 +14,98 @@ module BDD = struct
     exception Invalid_order_list
     exception No_solution
 
-    (* Map for variable to value mappings *)
-    module Rho = Map.Make(String);;
-
-    (* Evaluate the expression *)
-    let rec eval_expr bexpr rho = match bexpr with
+    (* Simplify the expression in an intelligent way *)
+    let simplify bexpr = match bexpr with
     OprUnary (o, e) -> (match o with 
-                      NOT -> (not(eval_expr e rho))
+                      NOT -> (
+                        match e with
+                        Constant(value) -> Constant(not value);
+                        | _ -> OprUnary (o, e) 
+                      )
                       | _ -> raise Invalid_operator)
     | OprBinary (o, e1, e2) -> (match o with 
-                      AND -> ((eval_expr e1 rho) && (eval_expr e2 rho))
-                      | OR -> ((eval_expr e1 rho) || (eval_expr e2 rho))
-                      | IFTHEN -> ((not(eval_expr e1 rho)) || (eval_expr e2 rho)) 
-                      | IFF -> (let a1 = (eval_expr e1 rho) in
-                                let a2 = (eval_expr e2 rho) in 
-                                a1 == a2
-                                )
+                      AND -> (
+                        match (e1, e2) with 
+                        (Constant(false), _) -> Constant(false)
+                        | (_, Constant(false)) -> Constant(false)
+                        | (Constant(v1), Constant(v2)) -> Constant(v1 && v2)
+                        | _ -> OprBinary (o, e1, e2)
+                      )
+                      | OR -> (
+                        match (e1, e2) with 
+                        (Constant(true), _) -> Constant(true)
+                        | (_, Constant(true)) -> Constant(true)
+                        | (Constant(v1), Constant(v2)) -> Constant(v1 || v2)
+                        | _ -> OprBinary (o, e1, e2)
+                      )
+                      | IFTHEN -> (
+                        match (e1, e2) with 
+                        (Constant(false), _) -> Constant(true)
+                        | (_, Constant(true)) -> Constant(true)
+                        | (Constant(v1), Constant(v2)) -> Constant(not(v1) || v2)
+                        | _ -> OprBinary (o, e1, e2)
+                      ) 
+                      | IFF -> ( 
+                        match (e1, e2) with 
+                        (Constant(value1), Constant(value2)) -> Constant(value1 == value2)
+                        | _ -> OprBinary (o, e1, e2)
+                      )
                       | _ -> raise Invalid_operator)
     
     | OprTernary (o, e1, e2, e3) -> (match o with 
-                      IFTHENELSE -> if (eval_expr e1 rho) then (eval_expr e2 rho) else (eval_expr e3 rho)
+                      IFTHENELSE -> (
+                        match e1 with 
+                        Constant(value) -> if value then e2 else e3
+                        | _ -> OprTernary (o, e1, e2, e3)
+                      )
+                      | _ -> raise Invalid_operator)
+    | Constant(e) -> Constant(e)
+    | Variable(e) -> Variable(e)
+    ;; 
+
+    (* Put the value of x in expr *)
+    let rec put_val bexpr x value = match bexpr with 
+    OprUnary (o, e) -> (simplify (OprUnary(o, (put_val e x value))))
+    | OprBinary (o, e1, e2) -> (simplify (OprBinary (o, (put_val e1 x value), (put_val e2 x value))))
+    | OprTernary (o, e1, e2, e3) -> (simplify (OprTernary (o, (put_val e1 x value), (put_val e2 x value), (put_val e3 x value))))
+    | Constant(e) -> Constant(e)
+    | Variable(e) -> if e = x then Constant(value) else Variable(e)
+    ;; 
+
+    let rec eval_expr bexpr = match bexpr with
+    OprUnary (o, e) -> (match o with 
+                      NOT -> (not(eval_expr e))
+                      | _ -> raise Invalid_operator)
+    | OprBinary (o, e1, e2) -> (match o with 
+                      AND -> (
+                        match (e1, e2) with 
+                        (Constant(false), _) -> false
+                        | (_, Constant(false)) -> false
+                        | (Constant(v1), Constant(v2)) -> v1 && v2
+                        | _ -> (eval_expr e1) && (eval_expr e2)
+                      )
+                      | OR -> (
+                        match (e1, e2) with 
+                        (Constant(true), _) -> true
+                        | (_, Constant(true)) -> true
+                        | (Constant(v1), Constant(v2)) -> v1 || v2
+                        | _ -> (eval_expr e1) || (eval_expr e2)
+                      )
+                      | IFTHEN -> (
+                        match (e1, e2) with 
+                        (Constant(false), _) -> true
+                        | (_, Constant(true)) -> true
+                        | (Constant(v1), Constant(v2)) -> not(v1) || v2
+                        | _ -> (not(eval_expr e1)) || (eval_expr e2)
+                      ) 
+                      | IFF -> (eval_expr e1) == (eval_expr e2)
                       | _ -> raise Invalid_operator)
     
+    | OprTernary (o, e1, e2, e3) -> (match o with 
+                      IFTHENELSE -> if (eval_expr e1) then (eval_expr e2) else (eval_expr e3)
+                      | _ -> raise Invalid_operator)
     | Constant(e) -> e
-    | Variable(e) -> if (Rho.mem e rho) then (Rho.find e rho) 
-                    else
-                    (Printf.printf "%s" e;
-                    raise Invalid_order_list)
+    | Variable(e) -> raise Invalid_order_list
     ;; 
 
     (* Checking for reduced bdd *)
@@ -58,24 +123,23 @@ module BDD = struct
     let int_to_bool x = if x then 1 else 0
 
     (* Construct entire bdd expr *)
-    let rec bdd_from_expr bexpr order rho h1 h2 = match order with
-    [] -> (int_to_bool (eval_expr bexpr rho))
-    | x::xs -> let m1 = (Rho.add x false rho) in
-               let m2 = (Rho.add x true rho) in 
-               let v1 = bdd_from_expr bexpr xs m1 h1 h2 in 
-               let v2 = bdd_from_expr bexpr xs m2 h1 h2 in 
+    let rec bdd_from_expr bexpr order h1 h2 = match order with
+    [] -> (int_to_bool (eval_expr bexpr))
+    | x::xs -> let m1 = (put_val bexpr x false) in
+               let m2 = (put_val bexpr x true) in 
+               let v1 = bdd_from_expr m1 xs h1 h2 in 
+               let v2 = bdd_from_expr m2 xs h1 h2 in 
                (mk h1 h2 x v1 v2) 
     ;; 
 
     (* Return the ROBDD formed *)
-    let bddFromExpr bexpr order = let m1 = Rho.empty in 
-                                  let h1 = Hashtbl.create 2 in 
+    let bddFromExpr bexpr order = let h1 = Hashtbl.create 2 in 
                                   let h2 = Hashtbl.create 2 in 
                                   (Hashtbl.add h1 0 ("0", -1, -1));
                                   (Hashtbl.add h1 1 ("1", -1, -1));
                                   (Hashtbl.add h2 ("0", -1, -1) 0);
                                   (Hashtbl.add h2 ("1", -1, -1) 1);
-                                  (bdd_from_expr bexpr order m1 h1 h2, h1, h2, order)
+                                  (bdd_from_expr bexpr order h1 h2, h1, h2, order)
     ;;
 
     (* Return number of satisfying truth assignments *)
@@ -85,7 +149,7 @@ module BDD = struct
               else raise Invalid_order_list
             )
       | x::xs -> ( let (var, l, h) = (Hashtbl.find h1 root) in 
-                    if var == x then (sat_count (l, h1, h2, xs) + sat_count (h, h1, h2, xs))
+                    if var = x then (sat_count (l, h1, h2, xs) + sat_count (h, h1, h2, xs))
                     else (2 * sat_count (root, h1, h2, xs))
                 )
     )
@@ -103,7 +167,7 @@ module BDD = struct
               else raise Invalid_order_list
             )
       | x::xs -> ( let (var, l, h) = (Hashtbl.find h1 root) in 
-                    if var == x then ( (all_sat (l, h1, h2, xs)) @ (List.map (concat var) (all_sat (h, h1, h2, xs))) )
+                    if var = x then ( (all_sat (l, h1, h2, xs)) @ (List.map (concat var) (all_sat (h, h1, h2, xs))) )
                     else ( (all_sat (root, h1, h2, xs)) @ (List.map (concat x) (all_sat (root, h1, h2, xs))) )
                 )
     );;
