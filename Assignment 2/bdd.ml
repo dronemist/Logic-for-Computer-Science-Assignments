@@ -14,13 +14,13 @@ module BDD = struct
     exception Invalid_order_list
     exception No_solution
 
-    (* Simplify the expression in an intelligent way *)
-    let simplify bexpr = match bexpr with
+    (* Put the value of x equal to v *)
+    let rec put_val bexpr x v = match bexpr with
     OprUnary (o, e) -> (match o with 
                       NOT -> (
                         match e with
                         Constant(value) -> Constant(not value);
-                        | _ -> OprUnary (o, e) 
+                        | _ -> OprUnary (o, (put_val e x v)) 
                       )
                       | _ -> raise Invalid_operator)
     | OprBinary (o, e1, e2) -> (match o with 
@@ -29,47 +29,38 @@ module BDD = struct
                         (Constant(false), _) -> Constant(false)
                         | (_, Constant(false)) -> Constant(false)
                         | (Constant(v1), Constant(v2)) -> Constant(v1 && v2)
-                        | _ -> OprBinary (o, e1, e2)
+                        | _ -> OprBinary (o, (put_val e1 x v), (put_val e2 x v))
                       )
                       | OR -> (
                         match (e1, e2) with 
                         (Constant(true), _) -> Constant(true)
                         | (_, Constant(true)) -> Constant(true)
                         | (Constant(v1), Constant(v2)) -> Constant(v1 || v2)
-                        | _ -> OprBinary (o, e1, e2)
+                        | _ -> OprBinary (o, (put_val e1 x v), (put_val e2 x v))
                       )
                       | IFTHEN -> (
                         match (e1, e2) with 
                         (Constant(false), _) -> Constant(true)
                         | (_, Constant(true)) -> Constant(true)
                         | (Constant(v1), Constant(v2)) -> Constant(not(v1) || v2)
-                        | _ -> OprBinary (o, e1, e2)
+                        | _ -> OprBinary (o, (put_val e1 x v), (put_val e2 x v))
                       ) 
                       | IFF -> ( 
                         match (e1, e2) with 
                         (Constant(value1), Constant(value2)) -> Constant(value1 == value2)
-                        | _ -> OprBinary (o, e1, e2)
+                        | _ -> OprBinary (o, (put_val e1 x v), (put_val e2 x v))
                       )
                       | _ -> raise Invalid_operator)
     
     | OprTernary (o, e1, e2, e3) -> (match o with 
                       IFTHENELSE -> (
                         match e1 with 
-                        Constant(value) -> if value then e2 else e3
-                        | _ -> OprTernary (o, e1, e2, e3)
+                        Constant(value) -> if value then (put_val e2 x v) else (put_val e3 x v)
+                        | _ -> OprTernary (o, (put_val e1 x v), (put_val e2 x v), (put_val e3 x v))
                       )
                       | _ -> raise Invalid_operator)
     | Constant(e) -> Constant(e)
-    | Variable(e) -> Variable(e)
-    ;; 
-
-    (* Put the value of x in expr *)
-    let rec put_val bexpr x value = match bexpr with 
-    OprUnary (o, e) -> (simplify (OprUnary(o, (put_val e x value))))
-    | OprBinary (o, e1, e2) -> (simplify (OprBinary (o, (put_val e1 x value), (put_val e2 x value))))
-    | OprTernary (o, e1, e2, e3) -> (simplify (OprTernary (o, (put_val e1 x value), (put_val e2 x value), (put_val e3 x value))))
-    | Constant(e) -> Constant(e)
-    | Variable(e) -> if e = x then Constant(value) else Variable(e)
+    | Variable(e) -> if e = x then Constant(v) else Variable(e)
     ;; 
 
     let rec eval_expr bexpr = match bexpr with
